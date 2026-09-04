@@ -1,0 +1,30 @@
+# Python
+**/__pycache__/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Local data and secrets
+.env
+data/*.db
+data/*.db-journal
+logs/*.log
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Claude Code / CodeGraph workspace caches (local-only)
+.claude/
+.codegraph/
+
+# Local DB / logs (keep folders via .gitkeep)
+data/*
+!data/.gitkeep
+logs/*
+!logs/.gitkeep

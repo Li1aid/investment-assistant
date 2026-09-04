@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Investment Dispatch</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script>
+    // Apply theme on <html> BEFORE body parses to avoid flash on reload.
+    // Default is DARK — light mode only when the user has explicitly opted in.
+    if (localStorage.getItem('theme') !== 'light') {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',  // Toggles `dark:` variants when <html> has .dark
+      theme: {
+        extend: {
+          fontFamily: {
+            'serif':   ['"Inter Tight"', '"Noto Sans SC"', 'system-ui', 'sans-serif'],
+            'sans':    ['"Inter Tight"', '"Noto Sans SC"', 'system-ui', 'sans-serif'],
+            'mono':    ['"IBM Plex Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="{{ static_v('css/app.css') }}" />
+</head>
+<body class="min-h-screen">
+
+<div x-data="dashboard()" x-init="bootstrap()" class="max-w-7xl mx-auto p-4 md:p-6">
+
+  <!-- Masthead -->
+  <header class="masthead">
+    <div class="masthead-rule masthead-rule--thin"></div>
+    <div class="masthead-row">
+      <div class="masthead-title">
+        <h1>Investment <em>Dispatch</em></h1>
+        <p class="dek">投資手記 · 本地仪表盘 · 每 30 秒自动刷新</p>
+      </div>
+      <div class="masthead-meta">
+        <div class="clocks">
+          <span class="clock"><span class="tz">SYD</span> <span x-text="clocks.syd"></span></span>
+          <span class="clock-sep">·</span>
+          <span class="clock"><span class="tz">NYC</span> <span x-text="clocks.nyc"></span></span>
+        </div>
+        <div class="date" x-text="todayMasthead()"></div>
+        <div class="eyebrow tape" x-show="lastUpdatedSyd">Tape <span x-text="lastUpdatedSyd"></span></div>
+      </div>
+    </div>
+    <div class="masthead-rule masthead-rule--thick"></div>
+
+    <div class="masthead-actions">
+      <div class="ccy-toggle">
+        <template x-for="c in displayCcys" :key="c">
+          <button @click="displayCcy = c"
+            :class="displayCcy === c ? 'active' : ''"
+            x-text="c"></button>
+        </template>
+      </div>
+      <button @click="refreshPrices()" :disabled="busy.prices" class="btn-ink">
+        <span x-text="busy.prices ? 'Refreshing…' : 'Refresh tape · 刷新行情'"></span>
+      </button>
+      <button @click="toggleTheme()" class="theme-toggle"
+              :title="theme === 'dark' ? 'Switch to light' : 'Switch to dark'">
+        <span x-text="theme === 'dark' ? '☀' : '☾'"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Summary cards -->
+  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <!-- Combined total card (in the selected display currency) -->
+    <div class="editorial-total sm:col-span-2 lg:col-span-2">
+      <div class="label-line">
+        <span>Net Worth · 合計 <span class="ccy-stamp" x-text="displayCcy"></span></span>
+        <span class="fx-tag" x-text="fxStr()"></span>
+      </div>
+      <div class="total-figure">
+        <span class="ccy-mark" x-text="ccySymbol(displayCcy)"></span><span x-text="fmt(totalDisplay.market_value)"></span>
+      </div>
+      <div class="delta" :class="totalDisplay.pnl >= 0 ? 'pos' : 'neg'">
+        <span class="arrow" x-text="totalDisplay.pnl >= 0 ? '涨' : '跌'"></span>
+        <span x-text="(totalDisplay.pnl >= 0 ? '+' : '') + fmt(totalDisplay.pnl)"></span>
+        <span class="pct">(<span x-text="totalDisplay.cost ? ((totalDisplay.pnl / totalDisplay.cost) * 100).toFixed(2) + '%' : '0%'"></span>)</span>
+        <span class="since">since inception</span>
+      </div>
+      <div class="meta">
+        <span class="eyebrow">Cost basis</span>
+        <span class="meta-val"><span x-text="ccySymbol(displayCcy)"></span><span x-text="fmt(totalDisplay.cost)"></span></span>
+      </div>
+      <!-- Per-currency breakdown (raw amounts, no FX conversion) -->
+      <div class="meta" x-show="summary.by_currency && Object.keys(summary.by_currency).length">
+        <span class="eyebrow">By currency</span>
+        <span class="meta-val text-sm">
+          <template x-for="(b, ccy) in summary.by_currency" :key="ccy">
+            <span class="mr-3">
+              <span class="text-slate-400 mr-0.5" x-text="ccy"></span><span x-text="ccySymbol(ccy) + fmt(b.market_value)"></span>
+            </span>
+          </template>
+        </span>
+      </div>
+    </div>
+
+    <!-- Today's P&L (consolidated, all currencies in one block) -->
+    <div class="bg-white rounded-xl border p-4 shadow-sm">
+      <div class="text-xs text-slate-500 mb-2">今日盈亏</div>
+      <template x-for="ccy in ['CNY','AUD','USD']" :key="ccy">
+        <div class="flex justify-between items-baseline py-1 border-b last:border-0 border-slate-100">
+          <span class="text-[11px] text-slate-500 font-medium tracking-wide" x-text="ccy"></span>
+          <template x-if="pnlByCcy(ccy)">
+            <span>
+              <span class="text-sm font-semibold tabular-nums"
+                    :class="pnlByCcy(ccy).pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                <span x-text="pnlByCcy(ccy).pnl >= 0 ? '+' : '−'"></span><span x-text="ccySymbol(ccy)"></span><span x-text="fmt(Math.abs(pnlByCcy(ccy).pnl))"></span>
+              </span>
+              <span class="text-[11px] ml-1 tabular-nums"
+                    :class="pnlByCcy(ccy).pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                (<span x-text="(pnlByCcy(ccy).pnl >= 0 ? '+' : '') + pnlByCcy(ccy).pct.toFixed(2)"></span>%)
+              </span>
+            </span>
+          </template>
+          <template x-if="!pnlByCcy(ccy)">
+            <span class="text-[11px] text-slate-300">—</span>
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <!-- Holdings breakdown (consolidated, one block, all currencies inside) -->
+    <div class="bg-white rounded-xl border p-4 shadow-sm">
+      <div class="text-xs text-slate-500 mb-2">当前持仓</div>
+      <template x-for="(b, ccy) in summary.by_currency" :key="ccy">
+        <div class="flex justify-between items-baseline py-1 border-b last:border-0 border-slate-100">
+          <span class="text-[11px] text-slate-500 font-medium tracking-wide" x-text="ccy"></span>
+          <span class="text-right">
+            <span class="text-sm font-semibold tabular-nums"
+                  x-text="ccySymbol(ccy) + fmt(b.market_value)"></span>
+            <span class="text-[11px] ml-1 tabular-nums"
+                  :class="b.pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+              (<span x-text="(b.pnl >= 0 ? '+' : '') + (b.cost ? ((b.pnl / b.cost) * 100).toFixed(2) : '0')"></span>%)
+            </span>
+          </span>
+        </div>
+      </template>
+      <template x-if="!summary.by_currency || !Object.keys(summary.by_currency).length">
+        <div class="text-xs text-slate-300 py-2">—</div>
+      </template>
+    </div>
+  </section>
+
+  <!-- P&L Calendar — compact week strip, expands to full month on click -->
+  <section class="bg-white rounded-xl border shadow-sm p-3 mb-4">
+    <!-- Compact: this week only -->
+    <div x-show="!calExpanded" x-cloak>
+      <div class="flex justify-between items-center mb-1.5">
+        <div class="text-xs text-slate-500">本周盈亏</div>
+        <button @click="calExpanded = true" class="text-[11px] text-slate-500 hover:text-slate-900">展开月历 →</button>
+      </div>
+      <div class="grid grid-cols-7 gap-1">
+        <template x-for="c in currentWeekCells()" :key="c.date">
+          <div class="rounded px-1.5 py-1 text-[10px] leading-tight tabular-nums border"
+               :class="c.pnl && (c.pnl.pnl_cny + c.pnl.pnl_aud) > 0 ? 'bg-emerald-50 border-emerald-200' : c.pnl && (c.pnl.pnl_cny + c.pnl.pnl_aud) < 0 ? 'bg-rose-50 border-rose-200' : (c.isToday ? 'bg-amber-50 border-amber-200' : 'border-slate-200')">
+            <div class="flex justify-between items-baseline">
+              <span class="font-semibold" x-text="c.day"></span>
+              <span class="text-[9px] text-slate-400" x-show="c.isToday">今</span>
+            </div>
+            <template x-if="c.pnl">
+              <div class="mt-0.5">
+                <div :class="c.pnl.pnl_cny >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                  <span x-text="c.pnl.pnl_cny >= 0 ? '+' : '−'"></span>¥<span x-text="fmt(Math.abs(c.pnl.pnl_cny))"></span>
+                </div>
+                <div :class="c.pnl.pnl_aud >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                  <span x-text="c.pnl.pnl_aud >= 0 ? '+' : '−'"></span>A$<span x-text="fmt(Math.abs(c.pnl.pnl_aud))"></span>
+                </div>
+                <div x-show="c.pnl.pnl_usd != null" :class="(c.pnl.pnl_usd || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                  <span x-text="(c.pnl.pnl_usd || 0) >= 0 ? '+' : '−'"></span>US$<span x-text="fmt(Math.abs(c.pnl.pnl_usd || 0))"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Expanded: full month -->
+    <div x-show="calExpanded" x-cloak>
+      <div class="flex justify-between items-center mb-2 gap-2">
+        <div class="flex items-center gap-1">
+          <button @click="calPrev()" class="px-2 py-0.5 rounded border hover:bg-slate-50 text-[11px]">←</button>
+          <h2 class="font-semibold text-sm" x-text="calMonthLabel()"></h2>
+          <button @click="calNext()" class="px-2 py-0.5 rounded border hover:bg-slate-50 text-[11px]">→</button>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-[11px] tabular-nums" :class="calMonthSummary().cny >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+            <span x-text="calMonthSummary().cny >= 0 ? '+' : '−'"></span>¥<span x-text="fmt(Math.abs(calMonthSummary().cny))"></span>
+          </span>
+          <span class="text-[11px] tabular-nums" :class="calMonthSummary().aud >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+            <span x-text="calMonthSummary().aud >= 0 ? '+' : '−'"></span>A$<span x-text="fmt(Math.abs(calMonthSummary().aud))"></span>
+          </span>
+          <span class="text-[11px] tabular-nums" :class="calMonthSummary().usd >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+            <span x-text="calMonthSummary().usd >= 0 ? '+' : '−'"></span>US$<span x-text="fmt(Math.abs(calMonthSummary().usd))"></span>
+          </span>
+          <button @click="calExpanded = false" class="px-2 py-0.5 rounded border hover:bg-slate-50 text-[11px]">↑ 收起</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-7 gap-0.5 text-[10px] text-slate-500 mb-0.5">
+        <div class="text-center">一</div>
+        <div class="text-center">二</div>
+        <div class="text-center">三</div>
+        <div class="text-center">四</div>
+        <div class="text-center">五</div>
+        <div class="text-center text-slate-400">六</div>
+        <div class="text-center text-slate-400">日</div>
+      </div>
+      <div class="grid grid-cols-7 gap-0.5">
+        <template x-for="c in calendarCells()" :key="c.date">
+          <div class="min-h-[44px] rounded px-1 py-0.5 leading-tight tabular-nums"
+               :class="!c.inMonth ? 'bg-slate-50 text-slate-300' : (c.pnl && (c.pnl.pnl_cny + c.pnl.pnl_aud) > 0 ? 'bg-emerald-50 border border-emerald-200' : c.pnl && (c.pnl.pnl_cny + c.pnl.pnl_aud) < 0 ? 'bg-rose-50 border border-rose-200' : 'bg-white border border-slate-200')">
+            <div class="font-semibold text-[10px]" x-text="c.day"></div>
+            <template x-if="c.pnl">
+              <div class="text-[9px]">
+                <div :class="c.pnl.pnl_cny >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                  <span x-text="c.pnl.pnl_cny >= 0 ? '+' : '−'"></span>¥<span x-text="fmt(Math.abs(c.pnl.pnl_cny))"></span>
+                </div>
+                <div :class="c.pnl.pnl_aud >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                  <span x-text="c.pnl.pnl_aud >= 0 ? '+' : '−'"></span>A$<span x-text="fmt(Math.abs(c.pnl.pnl_aud))"></span>
+                </div>
+                <div x-show="c.pnl.pnl_usd != null" :class="(c.pnl.pnl_usd || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                  <span x-text="(c.pnl.pnl_usd || 0) >= 0 ? '+' : '−'"></span>US$<span x-text="fmt(Math.abs(c.pnl.pnl_usd || 0))"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tabs -->
+  <nav class="flex gap-1 mb-4 border-b">
+    <template x-for="t in tabs" :key="t.id">
+      <button @click="active = t.id"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px"
+        :class="active === t.id ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'">
+        <span x-text="t.label"></span>
+      </button>
+    </template>
+  </nav>
+
+  <!-- Holdings -->
+  <section x-show="active === 'holdings'" class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="flex justify-between items-center px-4 py-3 border-b">
+      <h2 class="font-semibold">当前持仓</h2>
+      <div class="flex items-center gap-3 text-sm flex-wrap">
+        <span class="text-xs text-slate-500 tabular-nums">
+          总仓 <span class="text-slate-800 font-medium">¥<span x-text="fmt(poolTotal())"></span></span>
+          <template x-if="poolPrincipal() > 0">
+            <span>
+              <span class="text-slate-400">
+                (本金 ¥<span x-text="fmt(poolPrincipal())"></span>
+                <span :class="totalPnlCny() >= 0 ? 'text-emerald-700' : 'text-rose-600'">
+                  <span x-text="(totalPnlCny() >= 0 ? '+' : '') + fmt(totalPnlCny())"></span>
+                </span>)
+              </span>
+              · 仓位 <span class="text-slate-800 font-medium">¥<span x-text="fmt(totalPositionCny())"></span></span>
+              <span class="text-slate-400">(<span x-text="positionPct().toFixed(2)"></span>%)</span>
+              · 剩余
+              <span :class="cashRemaining() >= 0 ? 'text-emerald-700 font-medium' : 'text-rose-600 font-medium'">
+                ¥<span x-text="fmt(cashRemaining())"></span>
+              </span>
+            </span>
+          </template>
+        </span>
+        <button @click="openPoolTxModal('deposit')"
+                class="text-emerald-700 hover:text-emerald-900 text-xs border border-emerald-300 px-2 py-0.5 rounded">
+          + 添加资金池
+        </button>
+        <button @click="openPoolTxModal('withdraw')" x-show="poolTotal() > 0"
+                class="text-rose-600 hover:text-rose-800 text-xs border border-rose-200 px-2 py-0.5 rounded">
+          − 取出
+        </button>
+        <button @click="openPoolTxModal('set')"
+                class="text-slate-700 hover:text-slate-900 text-xs border border-slate-300 px-2 py-0.5 rounded">
+          = 设置总额
+        </button>
+        <button @click="openHoldingForm()" class="text-slate-600 hover:text-slate-900">+ 新增持仓</button>
+      </div>
+    </div>
+
+    <nav class="flex gap-1 px-4 border-b bg-slate-50">
+      <template x-for="g in holdingGroups()" :key="g.key">
+        <button @click="switchHoldingGroup(g.key)"
+                class="px-3 py-2 text-sm font-medium border-b-2 -mb-px"
+                :class="activeHoldingGroup === g.key
+                        ? 'border-slate-900 text-slate-900'
+                        : 'border-transparent text-slate-500 hover:text-slate-800'">
+          <span x-text="g.label"></span>
+          <span class="text-xs text-slate-400 ml-1" x-text="'(' + g.items.length + ')'"></span>
+        </button>
+      </template>
+    </nav>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+          <tr>
+            <th class="text-left px-4 py-2">代码 / 名称</th>
+            <th class="text-right px-4 py-2">数量</th>
+            <th class="text-right px-4 py-2">成本</th>
+            <th class="text-right px-4 py-2">现价</th>
+            <th class="text-right px-4 py-2">市值</th>
+            <th class="text-right px-4 py-2">池占比</th>
+            <th class="text-right px-4 py-2">今日盈亏</th>
+            <th class="text-right px-4 py-2">累计浮盈</th>
+            <th class="text-right px-4 py-2">累计收益率</th>
+            <th class="px-4 py-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="h in activeHoldingItems()" :key="h.id">
+            <tr class="border-t hover:bg-slate-50">
+              <td class="px-4 py-2">
+                <div class="font-medium" x-text="h.name"></div>
+                <div class="text-xs text-slate-500">
+                  <span x-text="h.symbol"></span> ·
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                    :class="h.currency === 'AUD' ? 'bg-amber-100 text-amber-800' : h.currency === 'CNY' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'"
+                    x-text="h.currency"></span>
+                </div>
+              </td>
+              <td class="px-4 py-2 text-right tabular-nums" x-text="fmt(h.quantity) + (h.unit !== 'share' ? ' ' + h.unit : '')"></td>
+              <td class="px-4 py-2 text-right tabular-nums">
+                <span class="text-slate-400 mr-0.5" x-text="ccySymbol(h.currency)"></span><span x-text="fmt4(h.avg_cost)"></span>
+              </td>
+              <td class="px-4 py-2 text-right tabular-nums">
+                <template x-if="h.last_price">
+                  <div>
+                    <div class="font-medium" :class="h.day_change > 0 ? 'text-emerald-600' : h.day_change < 0 ? 'text-rose-600' : 'text-slate-800'">
+                      <span class="text-slate-400 mr-0.5" x-text="ccySymbol(h.currency)"></span><span x-text="fmt4(h.last_price)"></span>
+                    </div>
+                    <div class="text-[10px]" :class="h.day_change > 0 ? 'text-emerald-600' : h.day_change < 0 ? 'text-rose-600' : 'text-slate-400'"
+                         x-show="h.prev_close">
+                      <span x-text="h.day_change >= 0 ? '+' : '−'"></span><span x-text="fmt4(Math.abs(h.day_change))"></span>
+                      (<span x-text="h.day_change_pct.toFixed(2)"></span>%)
+                    </div>
+                    <div class="text-[10px]" :class="freshness(h.last_price_at).cls" x-text="freshness(h.last_price_at).label"></div>
+                  </div>
+                </template>
+                <template x-if="!h.last_price"><span>—</span></template>
+              </td>
+              <td class="px-4 py-2 text-right tabular-nums font-medium">
+                <span class="text-slate-400 mr-0.5" x-text="ccySymbol(h.currency)"></span><span x-text="fmt(h.market_value)"></span>
+              </td>
+              <td class="px-4 py-2 text-right tabular-nums">
+                <template x-if="poolWeight(h) !== null">
+                  <span class="text-slate-600" x-text="poolWeight(h).toFixed(2) + '%'"></span>
+                </template>
+                <template x-if="poolWeight(h) === null">
+                  <span class="text-slate-300">—</span>
+                </template>
+              </td>
+              <td class="px-4 py-2 text-right tabular-nums">
+                <template x-if="h.prev_close">
+                  <div :class="h.day_pnl > 0 ? 'text-emerald-600' : h.day_pnl < 0 ? 'text-rose-600' : 'text-slate-500'">
+                    <div>
+                      <span x-text="h.day_pnl >= 0 ? '+' : '−'"></span><span x-text="ccySymbol(h.currency)"></span><span x-text="fmt(Math.abs(h.day_pnl))"></span>
+                    </div>
+                    <div class="text-[10px]" x-text="(h.day_change_pct >= 0 ? '+' : '') + h.day_change_pct.toFixed(2) + '%'"></div>
+                  </div>
+                </template>
+                <template x-if="!h.prev_close"><span class="text-slate-400">—</span></template>
+              </td>
+              <td class="px-4 py-2 text-right tabular-nums"
+                :class="h.pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                <span x-text="(h.pnl >= 0 ? '+' : '−')"></span><span x-text="ccySymbol(h.currency)"></span><span x-text="fmt(Math.abs(h.pnl))"></span>
+              </td>
+              <td class="px-4 py-2 text-right tabular-nums"
+                :class="h.pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'"
+                x-text="h.pnl_pct.toFixed(2) + '%'"></td>
+              <td class="px-4 py-2 text-right">
+                <button @click="editHolding(h)" class="text-xs text-slate-500 hover:text-slate-900">编辑</button>
+                <button @click="deleteHolding(h.id)" class="text-xs text-rose-500 hover:text-rose-700 ml-2">删除</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+    <details class="border-t bg-slate-50/50" x-show="poolTransactions.length > 0">
+      <summary class="px-4 py-2 cursor-pointer text-xs text-slate-500 hover:text-slate-800">
+        资金池历史 (<span x-text="poolTransactions.length"></span>) — 点开查看
+      </summary>
+      <div class="max-h-64 overflow-y-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-100 text-slate-500 text-xs">
+            <tr>
+              <th class="text-left px-4 py-2">日期</th>
+              <th class="text-right px-4 py-2">金额 (¥)</th>
+              <th class="text-left px-4 py-2">备注</th>
+              <th class="text-right px-4 py-2"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            <template x-for="t in poolTransactions" :key="t.id">
+              <tr class="hover:bg-slate-50">
+                <td class="px-4 py-1.5 text-xs text-slate-500" x-text="t.tx_date"></td>
+                <td class="px-4 py-1.5 text-right tabular-nums font-medium"
+                    :class="t.amount >= 0 ? 'text-emerald-700' : 'text-rose-600'"
+                    x-text="(t.amount >= 0 ? '+' : '') + fmt(t.amount)"></td>
+                <td class="px-4 py-1.5 text-slate-600 text-xs" x-text="t.note || ''"></td>
+                <td class="px-4 py-1.5 text-right">
+                  <button @click="deletePoolTx(t.id)"
+                          class="text-xs text-slate-400 hover:text-rose-600">删除</button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <!-- Transactions -->
+  <section x-show="active === 'transactions'" class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="flex justify-between items-center px-4 py-3 border-b">
+      <h2 class="font-semibold">交易记录</h2>
+      <button @click="openTxnForm()" class="text-sm text-slate-600 hover:text-slate-900">+ 添加交易</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+          <tr>
+            <th class="text-left px-4 py-2">日期</th>
+            <th class="text-left px-4 py-2">代码</th>
+            <th class="text-left px-4 py-2">名称</th>
+            <th class="text-left px-4 py-2">方向</th>
+            <th class="text-right px-4 py-2">数量</th>
+            <th class="text-right px-4 py-2">单价</th>
+            <th class="text-right px-4 py-2">手续费</th>
+            <th class="text-left px-4 py-2">备注</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="t in transactions" :key="t.id">
+            <tr class="border-t hover:bg-slate-50">
+              <td class="px-4 py-2 tabular-nums" x-text="t.trade_date"></td>
+              <td class="px-4 py-2 font-mono text-xs" x-text="t.symbol"></td>
+              <td class="px-4 py-2" x-text="t.name || ''"></td>
+              <td class="px-4 py-2">
+                <span class="text-xs px-2 py-0.5 rounded"
+                  :class="t.side === 'buy' ? 'bg-emerald-50 text-emerald-700' : t.side === 'sell' ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-600'"
+                  x-text="t.side"></span>
+              </td>
+              <td class="px-4 py-2 text-right tabular-nums" x-text="fmt(t.quantity)"></td>
+              <td class="px-4 py-2 text-right tabular-nums">
+                <span class="text-slate-400 mr-0.5" x-text="ccySymbol(t.currency || 'CNY')"></span><span x-text="fmt4(t.price)"></span>
+              </td>
+              <td class="px-4 py-2 text-right tabular-nums">
+                <span class="text-slate-400 mr-0.5" x-show="(t.fee || 0) > 0" x-text="ccySymbol(t.currency || 'CNY')"></span><span x-text="fmt(t.fee || 0)"></span>
+              </td>
+              <td class="px-4 py-2 text-xs text-slate-500" x-text="t.notes || ''"></td>
+              <td class="px-4 py-2 text-right whitespace-nowrap">
+                <button @click="openTxnEdit(t)" class="text-xs text-slate-500 hover:text-slate-900">编辑</button>
+                <button @click="deleteTxn(t.id)" class="text-xs text-rose-500 hover:text-rose-700 ml-2">删除</button>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="transactions.length === 0">
+            <td colspan="9" class="text-center text-sm text-slate-400 py-8">暂无交易记录。点击右上角"+ 添加交易"录入历史交易。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Watchlist -->
+  <section x-show="active === 'watchlist'" class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="flex justify-between items-center px-4 py-3 border-b">
+      <h2 class="font-semibold">自选 / 观察列表</h2>
+      <div class="flex items-center gap-3 text-sm">
+        <button @click="refreshPrices()" :disabled="busy.prices"
+                class="text-slate-600 hover:text-slate-900 disabled:opacity-50">
+          <span x-text="busy.prices ? '刷新中…' : '刷新行情'"></span>
+        </button>
+        <button @click="openWatchForm()" class="text-slate-600 hover:text-slate-900">+ 添加自选</button>
+      </div>
+    </div>
+
+    <nav class="flex gap-1 px-4 border-b bg-slate-50">
+      <template x-for="g in watchlistGroups()" :key="g.market">
+        <button @click="switchMarket(g.market)"
+                class="px-3 py-2 text-sm font-medium border-b-2 -mb-px"
+                :class="(activeMarketGroup() && activeMarketGroup().market === g.market)
+                        ? 'border-slate-900 text-slate-900'
+                        : 'border-transparent text-slate-500 hover:text-slate-800'">
+          <span x-text="g.label"></span>
+          <span class="text-xs text-slate-400 ml-1" x-text="'(' + g.items.length + ')'"></span>
+        </button>
+      </template>
+      <template x-if="watchlistGroups().length === 0">
+        <span class="px-3 py-2 text-sm text-slate-400">还没有自选,点右上角"+ 添加自选"</span>
+      </template>
+    </nav>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm" x-show="activeMarketGroup()">
+        <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+          <tr>
+            <th class="text-left px-4 py-2">优先级</th>
+            <th class="text-left px-4 py-2">代码</th>
+            <th class="text-left px-4 py-2">名称</th>
+            <th class="text-right px-4 py-2">现价</th>
+            <th class="text-left px-4 py-2">备注</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="w in (activeMarketGroup() ? activeMarketGroup().items : [])" :key="w.id">
+            <tr class="border-t hover:bg-slate-50">
+              <td class="px-4 py-2 whitespace-nowrap">
+                <select :value="w.priority_band == null ? '' : w.priority_band"
+                        @change="updateBand(w, $event.target.value)"
+                        :class="bandStyle(w.priority_band)"
+                        title="点击修改优先级"
+                        class="cursor-pointer px-2 py-0.5 rounded text-xs font-medium border-0 focus:outline-none focus:ring-2 focus:ring-slate-400">
+                  <option value="">— 未评</option>
+                  <option value="1">带1 可执行</option>
+                  <option value="2">带2 观察仓</option>
+                  <option value="3">带3 候选</option>
+                  <option value="4">带4 警示</option>
+                  <option value="5">带5 持有</option>
+                  <option value="6">带6 不追高</option>
+                </select>
+              </td>
+              <td class="px-4 py-2 font-mono text-xs">
+                <a :href="externalChartUrl(w)" target="_blank" rel="noopener noreferrer"
+                   class="text-slate-700 hover:text-slate-900 hover:underline"
+                   :title="'查看 ' + w.symbol + ' 趋势图 →'"
+                   x-text="w.symbol"></a>
+              </td>
+              <td class="px-4 py-2">
+                <a :href="externalChartUrl(w)" target="_blank" rel="noopener noreferrer"
+                   class="hover:underline"
+                   x-text="w.name"></a>
+              </td>
+              <td class="px-4 py-2 text-right tabular-nums">
+                <template x-if="w.last_price">
+                  <span><span class="text-slate-400 mr-0.5" x-text="ccySymbol(w.currency)"></span><span x-text="fmt4(w.last_price)"></span></span>
+                </template>
+                <template x-if="!w.last_price"><span>—</span></template>
+              </td>
+              <td class="px-4 py-2 text-xs text-slate-500" x-text="w.notes || ''"></td>
+              <td class="px-4 py-2 text-right">
+                <button @click="deleteWatch(w.id)" class="text-xs text-rose-500 hover:text-rose-700">删除</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="mt-10 text-center text-xs text-slate-400">
+    <p>本工具仅作个人记录与研究用途，<strong>不构成专业投资建议</strong>，投资有风险，决策请自负。</p>
+    <p class="mt-1">数据存储于 <code>data/portfolio.db</code></p>
+  </footer>
+
+  <!-- Modal: pool deposit / withdraw -->
+  <div x-show="poolTxModal.open" x-cloak @keydown.escape.window="poolTxModal.open=false"
+       class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl w-full max-w-md p-5 shadow-lg">
+      <h3 class="font-semibold mb-3"
+          x-text="poolTxModal.kind === 'withdraw' ? '从资金池取出'
+                  : poolTxModal.kind === 'set' ? '设置当前总池金额'
+                  : '添加资金池'"></h3>
+      <div class="space-y-3 text-sm">
+        <div class="flex gap-2">
+          <button type="button" @click="poolTxModal.kind = 'deposit'"
+                  :class="poolTxModal.kind === 'deposit' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'"
+                  class="flex-1 py-1.5 rounded">+ 入金</button>
+          <button type="button" @click="poolTxModal.kind = 'withdraw'"
+                  :class="poolTxModal.kind === 'withdraw' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-600'"
+                  class="flex-1 py-1.5 rounded">− 取出</button>
+          <button type="button" @click="poolTxModal.kind = 'set'"
+                  :class="poolTxModal.kind === 'set' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'"
+                  class="flex-1 py-1.5 rounded">= 设置</button>
+        </div>
+        <p x-show="poolTxModal.kind === 'set'" class="text-xs text-amber-700">
+          注意: 设置总额会**替换**所有现有交易记录,只保留一条"总额重置"行。如果只是新增/取出资金,用上面的 + / − 模式。
+        </p>
+        <label class="block">
+          <span class="eyebrow">金额 (¥)</span>
+          <input type="number" step="0.01" min="0.01" x-model="poolTxModal.amount"
+                 placeholder="例如 5000"
+                 class="w-full border rounded px-3 py-2 mt-1 text-base tabular-nums"
+                 @keydown.enter.prevent="submitPoolTx()" />
+        </label>
+        <label class="block">
+          <span class="eyebrow">日期</span>
+          <input type="date" x-model="poolTxModal.tx_date"
+                 class="w-full border rounded px-3 py-2 mt-1" />
+        </label>
+        <label class="block">
+          <span class="eyebrow">备注 (可选)</span>
+          <input type="text" x-model="poolTxModal.note"
+                 placeholder="例：10月工资 / 卖股票套现"
+                 class="w-full border rounded px-3 py-2 mt-1" />
+        </label>
+        <div class="text-xs text-slate-500 pt-2 border-t">
+          当前本金: <span class="font-medium">¥<span x-text="fmt(poolPrincipal())"></span></span>
+          <template x-if="poolTxModal.amount && !isNaN(parseFloat(poolTxModal.amount))">
+            <span>
+              → 操作后本金:
+              <span class="font-medium tabular-nums"
+                    :class="poolTxModal.kind === 'withdraw' ? 'text-rose-600'
+                            : poolTxModal.kind === 'set' ? 'text-slate-800'
+                            : 'text-emerald-700'">
+                ¥<span x-text="fmt(
+                  poolTxModal.kind === 'set' ? parseFloat(poolTxModal.amount)
+                    : poolPrincipal() + (poolTxModal.kind === 'withdraw' ? -1 : 1) * parseFloat(poolTxModal.amount)
+                )"></span>
+              </span>
+            </span>
+          </template>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-4">
+        <button @click="poolTxModal.open=false" class="text-slate-600 px-3 py-1.5">取消</button>
+        <button @click="submitPoolTx()"
+                :class="poolTxModal.kind === 'withdraw' ? 'bg-rose-600'
+                        : poolTxModal.kind === 'set' ? 'bg-slate-700'
+                        : 'bg-emerald-600'"
+                class="text-white px-4 py-1.5 rounded">确认保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: holding form -->
+  <div x-show="modal === 'holding'" x-cloak @keydown.escape.window="modal=null"
+    class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl w-full max-w-lg p-5 shadow-lg">
+      <h3 class="font-semibold mb-3" x-text="form.holding.id ? '编辑持仓' : '新增持仓'"></h3>
+
+      <!-- Search-and-fill: type a query, click a result to autofill the form. -->
+      <div class="search-block mb-4">
+        <label class="eyebrow block mb-1">Search · 搜索</label>
+        <input type="text"
+               x-model="holdingSearch.q"
+               @input="runHoldingSearch()"
+               placeholder="NVDA / Alibaba / ASML / 510300 / 茅台 …"
+               class="w-full text-sm" />
+
+        <div x-show="holdingSearch.loading" class="text-xs text-slate-400 mt-1">Searching…</div>
+
+        <div x-show="holdingSearch.degraded.length" class="text-xs text-amber-700 mt-1">
+          数据源部分降级: <span x-text="holdingSearch.degraded.join(', ')"></span>
+        </div>
+
+        <div x-show="holdingSearch.q.length >= 2 && holdingSearch.results.length === 0 && !holdingSearch.loading"
+             class="text-xs text-slate-400 mt-1">
+          No match — type into the fields below to add manually.<br>
+          没匹配——也可以下面手填。
+        </div>
+
+        <ul x-show="holdingSearch.results.length"
+            class="search-results mt-2 border max-h-56 overflow-auto text-sm">
+          <template x-for="r in holdingSearch.results" :key="r.market + ':' + r.symbol">
+            <li @click="pickHoldingResult(r)"
+                class="px-3 py-2 cursor-pointer hover:bg-slate-50 border-b last:border-b-0 flex justify-between items-baseline gap-3">
+              <span>
+                <span class="font-mono text-xs mr-2" x-text="r.symbol"></span>
+                <span x-text="r.name"></span>
+              </span>
+              <span class="text-[10px] uppercase tracking-widest text-slate-500"
+                    x-text="r.market.replace('cn_a','CN-A').replace('cn_fund','CN-FUND').replace('hk','HK').replace('us','US')"></span>
+            </li>
+          </template>
+        </ul>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <label class="flex flex-col gap-1">代码<input class="border rounded px-2 py-1" x-model="form.holding.symbol"></label>
+        <label class="flex flex-col gap-1">名称<input class="border rounded px-2 py-1" x-model="form.holding.name"></label>
+        <label class="flex flex-col gap-1">市场
+          <select class="border rounded px-2 py-1" x-model="form.holding.market" @change="onHoldingMarketChange()">
+            <option value="cn_a">A 股 / ETF</option>
+            <option value="cn_fund">中国基金</option>
+            <option value="hk">港股</option>
+            <option value="us">US 股 (NASDAQ/NYSE)</option>
+            <option value="asx_pocket">CommSec Pocket</option>
+            <option value="spot_gold">实物黄金</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1">货币
+          <select class="border rounded px-2 py-1" x-model="form.holding.currency">
+            <option>CNY</option><option>AUD</option><option>HKD</option><option>USD</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1">数量<input type="number" step="any" class="border rounded px-2 py-1" x-model.number="form.holding.quantity"></label>
+        <label class="flex flex-col gap-1">
+          单位成本 <span class="text-xs text-slate-400" x-text="ccySymbol(form.holding.currency)"></span>
+          <input type="number" step="any" class="border rounded px-2 py-1" x-model.number="form.holding.avg_cost">
+        </label>
+        <label class="flex flex-col gap-1">单位
+          <select class="border rounded px-2 py-1" x-model="form.holding.unit">
+            <option value="share">share</option>
+            <option value="unit">unit</option>
+            <option value="gram">gram</option>
+            <option value="lump">lump</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1" x-show="!form.holding.id">
+          买入日期 <span class="text-xs text-slate-400">Trade date</span>
+          <input type="date" class="border rounded px-2 py-1" x-model="form.holding.trade_date">
+        </label>
+        <label class="flex flex-col gap-1 col-span-2">备注<input class="border rounded px-2 py-1" x-model="form.holding.notes"></label>
+      </div>
+      <div class="flex justify-end gap-2 mt-4">
+        <button @click="modal=null" class="px-3 py-1.5 text-sm border rounded">取消</button>
+        <button @click="saveHolding()" class="px-3 py-1.5 text-sm bg-slate-900 text-white rounded">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: transaction form -->
+  <div x-show="modal === 'txn'" x-cloak @keydown.escape.window="modal=null"
+    class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl w-full max-w-lg p-5 shadow-lg">
+      <h3 class="font-semibold mb-3">添加交易</h3>
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <label class="flex flex-col gap-1">日期<input type="date" class="border rounded px-2 py-1" x-model="form.txn.trade_date"></label>
+        <label class="flex flex-col gap-1">代码
+          <input class="border rounded px-2 py-1"
+                 x-model="form.txn.symbol"
+                 list="txn-symbol-options"
+                 @change="onTxnSymbolChange()"
+                 placeholder="选持仓或手打新 symbol">
+          <datalist id="txn-symbol-options">
+            <template x-for="h in holdings" :key="h.id">
+              <option :value="h.symbol" x-text="h.symbol + ' — ' + h.name"></option>
+            </template>
+          </datalist>
+        </label>
+        <label class="flex flex-col gap-1">名称<input class="border rounded px-2 py-1" x-model="form.txn.name"></label>
+        <label class="flex flex-col gap-1">市场
+          <select class="border rounded px-2 py-1" x-model="form.txn.market"
+                  @change="form.txn.currency = marketDefaultCurrency(form.txn.market)">
+            <option value="cn_a">A 股 / ETF</option>
+            <option value="cn_fund">中国基金</option>
+            <option value="hk">港股</option>
+            <option value="us">US 股 (NASDAQ/NYSE)</option>
+            <option value="asx_pocket">CommSec Pocket</option>
+            <option value="spot_gold">实物黄金</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1">方向
+          <select class="border rounded px-2 py-1" x-model="form.txn.side">
+            <option value="buy">买入</option>
+            <option value="sell">卖出</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1">数量<input type="number" step="any" class="border rounded px-2 py-1" x-model.number="form.txn.quantity"></label>
+        <label class="flex flex-col gap-1">单价<input type="number" step="any" class="border rounded px-2 py-1" x-model.number="form.txn.price"></label>
+        <label class="flex flex-col gap-1">手续费<input type="number" step="any" class="border rounded px-2 py-1" x-model.number="form.txn.fee"></label>
+        <label class="flex flex-col gap-1">货币
+          <select class="border rounded px-2 py-1" x-model="form.txn.currency">
+            <option>CNY</option><option>AUD</option><option>HKD</option><option>USD</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1 col-span-2">备注<input class="border rounded px-2 py-1" x-model="form.txn.notes"></label>
+      </div>
+      <div class="flex justify-end gap-2 mt-4">
+        <button @click="modal=null" class="px-3 py-1.5 text-sm border rounded">取消</button>
+        <button @click="saveTxn()" class="px-3 py-1.5 text-sm bg-slate-900 text-white rounded">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: transaction metadata edit -->
+  <div x-show="modal === 'txnEdit'" x-cloak @keydown.escape.window="modal=null"
+    class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl w-full max-w-md p-5 shadow-lg">
+      <h3 class="font-semibold mb-1">编辑交易</h3>
+      <p class="text-xs text-slate-400 mb-3">方向 / 数量 / 单价不可改(已同步过持仓)——需要更正请删除后重录。</p>
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <label class="flex flex-col gap-1">日期<input type="date" class="border rounded px-2 py-1" x-model="form.txnEdit.trade_date"></label>
+        <label class="flex flex-col gap-1">名称<input class="border rounded px-2 py-1" x-model="form.txnEdit.name"></label>
+        <label class="flex flex-col gap-1">市场
+          <select class="border rounded px-2 py-1" x-model="form.txnEdit.market">
+            <option value="">—</option>
+            <option value="cn_a">A 股 / ETF</option>
+            <option value="cn_fund">中国基金</option>
+            <option value="hk">港股</option>
+            <option value="us">US 股 (NASDAQ/NYSE)</option>
+            <option value="asx_pocket">CommSec Pocket</option>
+            <option value="spot_gold">实物黄金</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1 col-span-2">备注<input class="border rounded px-2 py-1" x-model="form.txnEdit.notes"></label>
+      </div>
+      <div class="flex justify-end gap-2 mt-4">
+        <button @click="modal=null" class="px-3 py-1.5 text-sm border rounded">取消</button>
+        <button @click="saveTxnEdit()" class="px-3 py-1.5 text-sm bg-slate-900 text-white rounded">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: watchlist form -->
+  <div x-show="modal === 'watch'" x-cloak @keydown.escape.window="modal=null"
+    class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl w-full max-w-lg p-5 shadow-lg">
+      <h3 class="font-semibold mb-3">添加自选</h3>
+
+      <!-- Search-and-fill: type a query, click a result to autofill the form. -->
+      <div class="search-block mb-4">
+        <label class="eyebrow block mb-1">Search · 搜索</label>
+        <input type="text"
+               x-model="search.q"
+               @input="runSearch()"
+               placeholder="NVDA / Alibaba / ASML / 510300 …"
+               class="w-full text-sm" />
+
+        <div x-show="search.loading" class="text-xs text-slate-400 mt-1">Searching…</div>
+
+        <div x-show="search.degraded.length" class="text-xs text-amber-700 mt-1">
+          数据源部分降级: <span x-text="search.degraded.join(', ')"></span>
+        </div>
+
+        <div x-show="search.q.length >= 2 && search.results.length === 0 && !search.loading"
+             class="text-xs text-slate-400 mt-1">
+          No match — type into the fields below to add manually.<br>
+          没匹配——也可以下面手填。
+        </div>
+
+        <ul x-show="search.results.length"
+            class="search-results mt-2 border max-h-56 overflow-auto text-sm">
+          <template x-for="r in search.results" :key="r.market + ':' + r.symbol">
+            <li @click="pickResult(r)"
+                class="px-3 py-2 cursor-pointer hover:bg-slate-50 border-b last:border-b-0 flex justify-between items-baseline gap-3">
+              <span>
+                <span class="font-mono text-xs mr-2" x-text="r.symbol"></span>
+                <span x-text="r.name"></span>
+              </span>
+              <span class="text-[10px] uppercase tracking-widest text-slate-500"
+                    x-text="r.market.replace('cn_a','CN-A').replace('cn_fund','CN-FUND').replace('hk','HK').replace('us','US')"></span>
+            </li>
+          </template>
+        </ul>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <label class="flex flex-col gap-1">代码<input class="border rounded px-2 py-1" x-model="form.watch.symbol"></label>
+        <label class="flex flex-col gap-1">名称<input class="border rounded px-2 py-1" x-model="form.watch.name"></label>
+        <label class="flex flex-col gap-1">市场
+          <select class="border rounded px-2 py-1" x-model="form.watch.market">
+            <option value="cn_a">A 股 / ETF</option>
+            <option value="cn_fund">中国基金</option>
+            <option value="hk">港股</option>
+            <option value="us">US 股 (NASDAQ/NYSE)</option>
+            <option value="asx_pocket">CommSec Pocket</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1">货币
+          <select class="border rounded px-2 py-1" x-model="form.watch.currency">
+            <option>CNY</option><option>AUD</option><option>HKD</option><option>USD</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1 col-span-2">备注<input class="border rounded px-2 py-1" x-model="form.watch.notes"></label>
+      </div>
+      <div class="flex justify-end gap-2 mt-4">
+        <button @click="modal=null" class="px-3 py-1.5 text-sm border rounded">取消</button>
+        <button @click="saveWatch()" class="px-3 py-1.5 text-sm bg-slate-900 text-white rounded">保存</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Toast -->
+  <div x-show="toast.msg" x-cloak
+    class="fixed bottom-6 right-6 px-4 py-2 rounded-lg shadow-lg text-sm text-white"
+    :class="toast.kind === 'err' ? 'bg-rose-600' : 'bg-slate-900'"
+    x-text="toast.msg"></div>
+</div>
+
+<script src="{{ static_v('js/app.js') }}"></script>
+</body>
+</html>

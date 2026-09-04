@@ -1,0 +1,22 @@
+# Railway configuration. The dashboard's UI settings still take precedence —
+# this file is mainly to make the deployment shape obvious from the repo.
+#
+# Required env vars (set via Railway dashboard, NOT here):
+#   PORTFOLIO_DB        — set to /data/portfolio.db (volume mount path)
+#   TZ                  — Australia/Sydney (so cron + date.today() match user TZ)
+#   ENABLE_CRON         — 1 (in-process APScheduler: prices + daily P&L)
+#   API_TOKEN           — protects all portfolio-data API requests
+#   FLASK_DEBUG         — leave unset (defaults off in prod)
+#
+# Required volume (create in Railway dashboard, attach to /data):
+#   1GB SSD, mounted at /data, contains portfolio.db + WAL + SHM files
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "gunicorn -w 1 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT wsgi:app"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

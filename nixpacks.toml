@@ -1,0 +1,12 @@
+# Nixpacks build customization for Railway deployments.
+#
+# Why this file exists: NumPy (transitively imported by akshare → pandas)
+# requires libstdc++.so.6 at runtime. Nixpacks' default Python image does
+# NOT include it, so akshare-backed features (news fetch, A-share search)
+# all die with:
+#   ImportError: libstdc++.so.6: cannot open shared object file
+#
+# Adding the apt package installs the C++ runtime where NumPy's compiled
+# extensions can find it.
+[phases.setup]
+aptPkgs = ["libstdc++6"]

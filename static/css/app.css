@@ -1,0 +1,750 @@
+/* ─────────────────────────────────────────────────────────────
+   INVESTMENT DISPATCH — Editorial dispatch aesthetic
+   Cream paper · Inter Tight + Noto Sans SC · oxblood + sage
+   ───────────────────────────────────────────────────────────── */
+
+[x-cloak] { display: none !important; }
+
+/* === Design tokens === */
+:root {
+  --paper:        #F2EDE2;
+  --paper-2:      #FAF6EC;
+  --paper-3:      #ECE3D0;
+  --hairline:     #C9BFAB;
+  --hairline-2:   #DDD3BF;
+  --hairline-3:   #E8E0CE;
+
+  --ink:          #1A1410;
+  --ink-2:        #2E2820;
+  --ink-3:        #4A4034;
+  --muted:        #6E6555;
+  --soft:         #9A8E78;
+
+  --oxblood:      #7E2B36;
+  --oxblood-d:    #5E1F28;
+  --oxblood-soft: rgba(126, 43, 54, 0.08);
+
+  --sage:         #3D6E50;
+  --sage-d:       #2A4F39;
+  --sage-soft:    rgba(61, 110, 80, 0.08);
+
+  --honey:        #9C7340;
+  --honey-soft:   rgba(156, 115, 64, 0.10);
+
+  --shadow-1: 0 1px 0 var(--hairline-3);
+}
+
+/* === Base === */
+html, body { background: var(--paper); }
+body {
+  color: var(--ink-2);
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'lnum' 1;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+/* Paper grain — fixed, behind everything */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  mix-blend-mode: multiply;
+}
+body > * { position: relative; z-index: 1; }
+
+/* Selection */
+::selection { background: var(--ink); color: var(--paper); }
+
+/* === Typography === */
+h1, h2, h3 {
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  color: var(--ink);
+  margin: 0;
+}
+h1 { font-weight: 600; letter-spacing: -0.025em; }
+h2 { font-weight: 600; letter-spacing: -0.01em; }
+h3 { font-weight: 600; letter-spacing: -0.005em; }
+
+em, i {
+  font-style: italic;
+}
+
+.eyebrow {
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.tabular-nums, .font-mono {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-family: 'Inter Tight', 'IBM Plex Mono', monospace;
+  letter-spacing: -0.005em;
+}
+
+code, .ticker, .font-mono.text-xs, .text-xs.font-mono {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 0.92em;
+  letter-spacing: 0;
+}
+
+/* === Masthead === */
+.masthead { margin: 8px 0 32px; }
+.masthead-rule { background: var(--ink); height: 1px; }
+.masthead-rule--thin { height: 1px; margin: 0 0 16px; }
+.masthead-rule--thick { height: 3px; margin: 16px 0 18px; }
+.masthead-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.masthead-title h1 {
+  font-size: 44px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.03em;
+}
+.masthead-title h1 em {
+  font-style: normal;
+  color: var(--oxblood);
+  font-weight: 600;
+}
+.masthead-title .dek {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  font-style: italic;
+}
+.masthead-meta {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  line-height: 1.3;
+}
+.masthead-meta .date {
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  font-style: italic;
+  font-size: 16px;
+  color: var(--ink);
+  letter-spacing: 0;
+}
+.masthead-meta .tape { color: var(--soft); }
+.masthead-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.ccy-toggle {
+  display: inline-flex;
+  border: 1px solid var(--ink);
+}
+.ccy-toggle button {
+  padding: 7px 16px;
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: transparent;
+  transition: background .15s, color .15s;
+}
+.ccy-toggle button:hover { background: rgba(0,0,0,0.05); }
+.ccy-toggle button.active { background: var(--ink); color: var(--paper); }
+
+.btn-ink, .btn-ghost {
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: 8px 18px;
+  border-radius: 0;
+  transition: background .15s, color .15s, border-color .15s;
+  cursor: pointer;
+}
+.btn-ink { background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
+.btn-ink:hover { background: var(--ink-2); }
+.btn-ink:disabled { opacity: 0.5; cursor: default; }
+
+.btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
+.btn-ghost:hover { background: var(--ink); color: var(--paper); }
+.btn-ghost:disabled { opacity: 0.5; cursor: default; }
+
+/* === Editorial total card === */
+.editorial-total {
+  background: var(--paper-2);
+  border: 1px solid var(--hairline);
+  border-top: 4px solid var(--ink);
+  border-radius: 0;
+  padding: 28px 32px 24px;
+  position: relative;
+}
+.editorial-total .label-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+.editorial-total .ccy-stamp {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  padding: 1px 6px;
+  background: var(--ink);
+  color: var(--paper);
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+.editorial-total .fx-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--soft);
+}
+.editorial-total .total-figure {
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 50px;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.editorial-total .total-figure .ccy-mark {
+  font-size: 0.5em;
+  font-weight: 300;
+  margin-right: 8px;
+  color: var(--muted);
+  vertical-align: 0.32em;
+}
+.editorial-total .delta {
+  margin-top: 12px;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums lining-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.editorial-total .delta .arrow { font-size: 11px; }
+.editorial-total .delta .pct { color: var(--muted); font-size: 13px; }
+.editorial-total .delta .since {
+  font-family: 'Inter Tight', sans-serif;
+  font-style: italic;
+  font-size: 11px;
+  color: var(--soft);
+  margin-left: auto;
+  letter-spacing: 0.04em;
+}
+.editorial-total .delta.pos { color: var(--sage); }
+.editorial-total .delta.neg { color: var(--oxblood); }
+.editorial-total .meta {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline-3);
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.editorial-total .meta .meta-val {
+  font-variant-numeric: tabular-nums lining-nums;
+  color: var(--ink);
+}
+
+/* === Tailwind color overrides ============================
+   Map the slate/emerald/rose/amber palettes used throughout
+   the template to the editorial palette. Surgical overrides
+   instead of touching every utility in the HTML. */
+
+/* Sharp corners, no shadows */
+.rounded, .rounded-md, .rounded-lg, .rounded-xl { border-radius: 0 !important; }
+.shadow-sm, .shadow, .shadow-lg { box-shadow: none !important; }
+
+/* Cards */
+.bg-white {
+  background: var(--paper-2) !important;
+}
+
+/* Surfaces (PnL bg variations) */
+.bg-emerald-50  { background: var(--sage-soft) !important; }
+.bg-emerald-100 { background: rgba(61,110,80,0.14) !important; }
+.bg-rose-50     { background: var(--oxblood-soft) !important; }
+.bg-rose-100    { background: rgba(126,43,54,0.14) !important; }
+.bg-amber-50    { background: var(--honey-soft) !important; }
+.bg-amber-100   { background: rgba(156,115,64,0.16) !important; }
+.bg-slate-50    { background: var(--paper-3) !important; }
+.bg-slate-100   { background: rgba(0,0,0,0.04) !important; }
+
+/* Text colors */
+.text-emerald-300, .text-emerald-500, .text-emerald-600, .text-emerald-700 { color: var(--sage) !important; }
+.text-rose-300, .text-rose-500, .text-rose-600, .text-rose-700 { color: var(--oxblood) !important; }
+.text-amber-600, .text-amber-700, .text-amber-800 { color: var(--honey) !important; }
+.text-slate-300, .text-slate-400 { color: var(--soft) !important; }
+.text-slate-500 { color: var(--muted) !important; }
+.text-slate-600 { color: var(--ink-3) !important; }
+.text-slate-700, .text-slate-800 { color: var(--ink-2) !important; }
+.text-slate-900 { color: var(--ink) !important; }
+
+/* Borders */
+.border, .border-t, .border-b, .border-l, .border-r { border-color: var(--hairline-2) !important; }
+.border-emerald-200 { border-color: rgba(61,110,80,0.30) !important; }
+.border-rose-200    { border-color: rgba(126,43,54,0.30) !important; }
+.border-amber-200   { border-color: rgba(156,115,64,0.32) !important; }
+.border-slate-200, .border-slate-100 { border-color: var(--hairline-2) !important; }
+
+/* Primary ink buttons (refresh, save, etc.) */
+.bg-slate-900 {
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+}
+.bg-slate-900.text-white,
+.text-white.bg-slate-900,
+button.bg-slate-900,
+button.bg-slate-900 span { color: var(--paper) !important; }
+.bg-slate-700, .hover\:bg-slate-700:hover { background: var(--ink-2) !important; }
+.hover\:bg-slate-100:hover { background: rgba(0,0,0,0.04) !important; }
+.hover\:bg-slate-50:hover  { background: rgba(0,0,0,0.025) !important; }
+
+/* Make all bg-slate-900 buttons editorial (small caps) */
+button.bg-slate-900 {
+  border-radius: 0 !important;
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  font-size: 11.5px;
+  letter-spacing: 0.18em;
+  font-weight: 500;
+}
+
+/* Emerald-600 button (生成今日建议) → use oxblood as primary accent */
+.bg-emerald-600 { background: var(--oxblood) !important; color: var(--paper) !important; }
+.hover\:bg-emerald-700:hover { background: var(--oxblood-d) !important; }
+.bg-emerald-600.text-white { color: var(--paper) !important; }
+button.bg-emerald-600 {
+  border-radius: 0 !important;
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  font-size: 11.5px;
+  letter-spacing: 0.18em;
+  font-weight: 500;
+}
+
+/* === Tabs nav === */
+nav.flex.gap-1.mb-4.border-b {
+  border-bottom: 1px solid var(--ink) !important;
+  margin-bottom: 28px !important;
+  gap: 0 !important;
+}
+nav.flex.gap-1 button {
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.12em !important;
+  padding: 14px 22px !important;
+  border-bottom: 2px solid transparent !important;
+  color: var(--soft) !important;
+  margin-bottom: -1px !important;
+  transition: color .2s, border-color .2s;
+}
+nav.flex.gap-1 button:hover { color: var(--ink-2) !important; }
+nav.flex.gap-1 button.border-slate-900 {
+  border-bottom: 2px solid var(--oxblood) !important;
+  color: var(--ink) !important;
+}
+
+/* === Tables === */
+table { border-collapse: collapse; }
+thead {
+  background: transparent !important;
+}
+thead tr { background: transparent !important; }
+thead.bg-slate-50, thead.bg-slate-50 tr { background: transparent !important; }
+thead th {
+  background: transparent !important;
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.16em !important;
+  color: var(--muted) !important;
+  padding: 14px 16px !important;
+  border-bottom: 1px solid var(--ink) !important;
+}
+tbody tr { border-top: 1px solid var(--hairline-3) !important; }
+tbody tr:first-child { border-top: 0 !important; }
+tbody tr:hover { background: rgba(0,0,0,0.025) !important; }
+tbody td { padding: 14px 16px !important; }
+
+/* Chips / pills (like the currency tag in holdings, side tag) */
+.px-1\.5.py-0\.5.rounded,
+.text-xs.px-2.py-0\.5.rounded,
+.text-\[10px\].font-medium.px-1\.5.py-0\.5.rounded {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.10em !important;
+  text-transform: uppercase;
+  border-radius: 0 !important;
+  padding: 2px 7px !important;
+}
+
+/* === Section cards === */
+.bg-white.rounded-xl,
+section.bg-white.rounded-xl,
+.rounded-xl.border {
+  background: var(--paper-2) !important;
+  border: 1px solid var(--hairline-2) !important;
+}
+
+/* Section header bar inside cards */
+.border-b > h2,
+section.bg-white.rounded-xl .px-4.py-3.border-b h2,
+section.bg-white .px-4.py-3.border-b h2 {
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+
+/* Section header buttons (+ 新增持仓 etc.) */
+section.bg-white .px-4.py-3.border-b button {
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif !important;
+  font-size: 11px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.14em !important;
+  color: var(--ink-3) !important;
+  transition: color .15s;
+}
+section.bg-white .px-4.py-3.border-b button:hover { color: var(--oxblood) !important; }
+
+/* === Inputs === */
+input[type="text"], input[type="number"], input[type="date"],
+select, textarea {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--hairline) !important;
+  border-radius: 0 !important;
+  padding: 6px 0 !important;
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif !important;
+  color: var(--ink) !important;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-size: 14px;
+  transition: border-color .15s;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none !important;
+  border-bottom-color: var(--ink) !important;
+}
+label {
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  color: var(--ink-3);
+}
+label > .text-slate-500 { color: var(--muted) !important; }
+
+/* === Modal === */
+.fixed.inset-0.bg-black\/40 {
+  background: rgba(20, 16, 12, 0.55) !important;
+  backdrop-filter: blur(2.5px);
+  -webkit-backdrop-filter: blur(2.5px);
+}
+.fixed.inset-0 .bg-white {
+  background: var(--paper) !important;
+  border: 1px solid var(--hairline) !important;
+  border-top: 4px solid var(--ink) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 12px 32px rgba(20, 16, 12, 0.22) !important;
+}
+.fixed.inset-0 .bg-white h3 {
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--hairline-3);
+}
+
+/* Modal action buttons */
+.fixed.inset-0 .bg-white .flex.justify-end button {
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif !important;
+  font-size: 11px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.18em !important;
+  padding: 9px 18px !important;
+  border-radius: 0 !important;
+  font-weight: 500;
+}
+.fixed.inset-0 .bg-white .flex.justify-end button.border {
+  background: transparent !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--ink) !important;
+}
+.fixed.inset-0 .bg-white .flex.justify-end button.border:hover {
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+}
+
+/* === Toast === */
+.fixed.bottom-6.right-6 {
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+  border-radius: 0 !important;
+  border-left: 3px solid var(--oxblood) !important;
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif !important;
+  font-size: 12.5px !important;
+  letter-spacing: 0.04em;
+  padding: 12px 18px !important;
+  box-shadow: 0 8px 20px rgba(20,16,12,0.25) !important;
+}
+.fixed.bottom-6.right-6.bg-rose-600 {
+  background: var(--oxblood) !important;
+  border-left: 3px solid var(--ink) !important;
+}
+
+/* === Calendar === */
+section.bg-white.rounded-xl.border.shadow-sm.p-3 {
+  background: var(--paper-2) !important;
+  border: 1px solid var(--hairline-2) !important;
+}
+section.bg-white.rounded-xl.border.shadow-sm.p-3 .grid.grid-cols-7 > div {
+  border-radius: 0 !important;
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+section.bg-white.rounded-xl.border.shadow-sm.p-3 .grid.grid-cols-7 > div.bg-slate-50 {
+  background: rgba(0,0,0,0.025) !important;
+}
+
+/* Calendar nav arrows */
+section.bg-white.rounded-xl.border.shadow-sm.p-3 .px-2.py-0\.5.rounded.border {
+  border-radius: 0 !important;
+  font-family: 'IBM Plex Mono', monospace;
+  border-color: var(--hairline) !important;
+}
+
+/* === Footer === */
+footer {
+  margin-top: 64px !important;
+  padding-top: 28px;
+  border-top: 1px solid var(--hairline-2);
+  font-family: 'Inter Tight', 'Noto Sans SC', system-ui, sans-serif !important;
+  font-style: italic;
+  color: var(--soft) !important;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  line-height: 1.7;
+  text-align: center;
+}
+footer code {
+  font-family: 'IBM Plex Mono', monospace;
+  background: var(--paper-3);
+  padding: 1px 5px;
+  font-style: normal;
+}
+footer strong {
+  font-style: normal;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+/* === Responsive masthead === */
+@media (max-width: 640px) {
+  .masthead-title h1 { font-size: 36px; }
+  .editorial-total .total-figure { font-size: 42px; }
+  .editorial-total { padding: 22px 22px 20px; }
+  .masthead-meta { text-align: left; }
+}
+
+/* === Misc fixes === */
+.divide-y > * + * { border-top-color: var(--hairline-3) !important; }
+
+/* Hide the slate-900 underline on tabs (only oxblood is the active color) */
+.border-slate-900 { border-color: var(--oxblood) !important; }
+
+/* === Dark mode · 夜间模式 ============================================
+   html.dark overrides the editorial-cream tokens with a coordinated
+   dark "深夜版编辑报" palette. All existing styles reference these
+   variables, so flipping the class on <html> rebases the whole UI.
+   The paper-grain SVG overlay is hidden in dark mode (multiply-blend
+   inverts ugly on dark backgrounds). */
+html.dark {
+  --paper:        #1B1814;
+  --paper-2:      #25211C;
+  --paper-3:      #2C271F;
+  --hairline:     #44392E;
+  --hairline-2:   #3A3026;
+  --hairline-3:   #322821;
+  --ink:          #ECE6D4;
+  --ink-2:        #D8D2C2;
+  --ink-3:        #C0B9A8;
+  --muted:        #998F7C;
+  --soft:         #756A58;
+  --oxblood:      #C84A5A;
+  --oxblood-d:    #B83A4A;
+  --oxblood-soft: rgba(200, 74, 90, 0.15);
+  --sage:         #7BAE8B;
+  --sage-d:       #5F9971;
+  --sage-soft:    rgba(123, 174, 139, 0.13);
+  --honey:        #D9AA5F;
+  --honey-soft:   rgba(217, 170, 95, 0.13);
+}
+html.dark body::before { opacity: 0; }
+
+/* Theme toggle button (masthead) · 主题切换按钮 */
+.theme-toggle {
+  font-size: 14px;
+  padding: 6px 10px;
+  line-height: 1;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  border: 1px solid var(--hairline);
+  border-radius: 0;
+  transition: color .15s, border-color .15s;
+}
+.theme-toggle:hover {
+  color: var(--oxblood);
+  border-color: var(--oxblood);
+}
+
+/* === Masthead clocks · 顶头实时时钟 === */
+.masthead-meta .clocks {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.masthead-meta .clock { display: inline-flex; align-items: baseline; gap: 6px; }
+.masthead-meta .clock .tz {
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.masthead-meta .clock-sep { color: var(--soft); }
+
+/* === Dark-mode overrides for Tailwind utilities · 夜间模式 Tailwind 修正 ===
+   The HTML uses Tailwind utility classes (bg-white, text-slate-500, etc.)
+   directly. These are hardcoded colors and don't pick up the CSS variables
+   we use elsewhere, so dark mode looks like grey-on-grey unless we
+   retarget the most-used utilities here. Keep contrast ratios ≥ 4.5:1 for
+   body text and ≥ 3:1 for borders/secondary text. */
+
+/* Card / surface backgrounds */
+html.dark .bg-white        { background-color: var(--paper-2) !important; }
+html.dark .bg-slate-50     { background-color: var(--paper-3) !important; }
+html.dark .bg-slate-100    { background-color: var(--paper-3) !important; }
+html.dark .bg-slate-50\/50 { background-color: rgba(44, 39, 31, 0.5) !important; }
+
+/* Primary-action button backgrounds (kept dark for prominence) */
+html.dark .bg-slate-900    { background-color: var(--ink) !important; color: var(--paper) !important; }
+html.dark .bg-slate-900:hover,
+html.dark .hover\:bg-slate-700:hover { background-color: var(--ink-2) !important; }
+html.dark .bg-slate-700    { background-color: var(--paper-3) !important; }
+
+/* Text — ink scale */
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-slate-700  { color: var(--ink) !important; }
+html.dark .text-slate-600  { color: var(--ink-2) !important; }
+html.dark .text-slate-500  { color: var(--ink-3) !important; }
+html.dark .text-slate-400  { color: var(--muted) !important; }
+html.dark .text-slate-300  { color: var(--soft) !important; }
+html.dark .text-white      { color: var(--paper) !important; }
+
+/* Hover states */
+html.dark .hover\:text-slate-900:hover,
+html.dark .hover\:text-slate-800:hover { color: var(--ink) !important; }
+html.dark .hover\:text-slate-700:hover { color: var(--ink-2) !important; }
+html.dark .hover\:bg-slate-50:hover    { background-color: var(--paper-3) !important; }
+html.dark .hover\:bg-slate-100:hover   { background-color: var(--hairline-3) !important; }
+
+/* Borders */
+html.dark .border,
+html.dark .border-b,
+html.dark .border-t,
+html.dark .border-l,
+html.dark .border-r,
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .divide-y > * + *       { border-color: var(--hairline) !important; }
+
+/* Form inputs — make sure typed text is readable. Catch every input
+   regardless of whether type="" is explicit (default is text). */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="file"]):not([type="color"]),
+html.dark textarea,
+html.dark select {
+  background-color: var(--paper-3) !important;
+  color: var(--ink) !important;
+  border-color: var(--hairline) !important;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder { color: var(--muted) !important; }
+/* Native date-picker calendar icon — invert so it's visible on dark bg */
+html.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.85);
+}
+
+/* Semantic accent backgrounds — keep the hue but darken the wash so
+   light text on them stays readable */
+html.dark .bg-emerald-50  { background-color: rgba(95, 153, 113, 0.12) !important; }
+html.dark .bg-rose-50     { background-color: rgba(184, 58, 74, 0.13) !important; }
+html.dark .bg-amber-50    { background-color: rgba(217, 170, 95, 0.13) !important; }
+html.dark .bg-emerald-100 { background-color: rgba(95, 153, 113, 0.18) !important; }
+html.dark .bg-rose-100    { background-color: rgba(184, 58, 74, 0.18) !important; }
+html.dark .bg-amber-100   { background-color: rgba(217, 170, 95, 0.18) !important; }
+html.dark .bg-violet-100  { background-color: rgba(139, 99, 188, 0.18) !important; }
+html.dark .bg-fuchsia-100 { background-color: rgba(195, 99, 188, 0.20) !important; }
+
+/* Semantic accent text — brighten so it pops off dark paper */
+html.dark .text-emerald-600,
+html.dark .text-emerald-700,
+html.dark .text-emerald-900 { color: var(--sage) !important; }
+html.dark .text-rose-500,
+html.dark .text-rose-600,
+html.dark .text-rose-700,
+html.dark .text-rose-800    { color: var(--oxblood) !important; }
+html.dark .text-amber-700,
+html.dark .text-amber-800   { color: var(--honey) !important; }
+html.dark .text-violet-700,
+html.dark .text-fuchsia-700 { color: #B07ECC !important; }
+
+/* Accent borders */
+html.dark .border-emerald-200,
+html.dark .border-emerald-300 { border-color: rgba(123, 174, 139, 0.5) !important; }
+html.dark .border-rose-200,
+html.dark .border-rose-300    { border-color: rgba(200, 74, 90, 0.5) !important; }
+
+/* Disabled state */
+html.dark button:disabled { opacity: 0.45; }

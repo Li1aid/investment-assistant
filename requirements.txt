@@ -1,0 +1,9 @@
+Flask>=3.0
+python-dotenv>=1.0
+requests>=2.31
+akshare>=1.13
+yfinance>=0.2.40
+pandas>=2.0
+gunicorn>=22.0
+APScheduler>=3.10
+tzdata>=2024.1
